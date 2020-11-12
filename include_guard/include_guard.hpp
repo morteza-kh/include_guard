@@ -17,37 +17,25 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #if BOOST_OS_WINDOWS
-class clipboard : public boost::noncopyable {
-public:
-	clipboard() {
-		OpenClipboard(0);
-		EmptyClipboard();
-	}
-	~clipboard() { CloseClipboard(); }
+auto clipboard_commit(std::string const &data) noexcept -> void {
+	OpenClipboard(0);
+	EmptyClipboard();
+	auto output = data.data();
+	auto len	= data.size() + 1;
+	auto hMem	= GlobalAlloc(GMEM_MOVEABLE, len);
 
-	auto commit(std::string const &data) -> void {
-		auto output = data.data();
-		auto len	= data.size() + 1;
-		auto hMem	= GlobalAlloc(GMEM_MOVEABLE, len);
-
-		memcpy(GlobalLock(hMem), output, len);
-		GlobalUnlock(hMem);
-		SetClipboardData(CF_TEXT, hMem);
-	}
-};
+	memcpy(GlobalLock(hMem), output, len);
+	GlobalUnlock(hMem);
+	SetClipboardData(CF_TEXT, hMem);
+	CloseClipboard();
+}
 #endif
 
-class include_guard {
-	std::string guard_;
+auto make_include_guard() -> std::string {
+	auto uuid  = boost::algorithm::to_upper_copy(boost::uuids::to_string(boost::uuids::random_generator()()));
+	auto guard = "I" + std::regex_replace(uuid, std::regex { "-" }, "_");
 
-public:
-	include_guard()
-		: guard_ { "I" + std::regex_replace(
-							 boost::algorithm::to_upper_copy(boost::uuids::to_string(boost::uuids::random_generator()())),
-							 std::regex { "-" },
-							 "_") } {}
-
-	auto generate() -> std::string { return "#ifndef " + guard_ + "\n#define " + guard_ + "\n\n#endif /* !" + guard_ + " */\n"; }
-};
+	return "#ifndef " + guard + "\n#define " + guard + "\n\n#endif /* !" + guard + " */";
+}
 
 #endif /* !I4EA5D014_5FB6_4DA7_8E3E_A4308D51F4CF */
